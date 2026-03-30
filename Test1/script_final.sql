@@ -5,7 +5,11 @@ WITH AA AS (
     SELECT
         V."IDNAccount",
         V."NrBank",
-        V."Account"
+        V."Account",
+        V."BalPrefix1",
+        V."BalPrefix2",
+        V."BalPrefix3",
+        V."BalPrefix4"
     FROM PBI.V_ACCOUNT_WITH_ACCOUNT V
     WHERE V."NrBank" IN (
         SELECT "NrBank"
@@ -41,25 +45,25 @@ WITH AA AS (
           '964'
       )
       AND (
-          SUBSTR(V."NrAccount", 9, 4) IN (
+          V."BalPrefix4" IN (
               SELECT "BalAccount"
               FROM PBI."SPAccountControl"
               WHERE "count_BalAccount" = '4'
                 AND "PrYSR" = '1'
           )
-          OR SUBSTR(V."NrAccount", 9, 3) IN (
+          OR V."BalPrefix3" IN (
               SELECT "BalAccount"
               FROM PBI."SPAccountControl"
               WHERE "count_BalAccount" = '3'
                 AND "PrYSR" = '1'
           )
-          OR SUBSTR(V."NrAccount", 9, 2) IN (
+          OR V."BalPrefix2" IN (
               SELECT "BalAccount"
               FROM PBI."SPAccountControl"
               WHERE "count_BalAccount" = '2'
                 AND "PrYSR" = '1'
           )
-          OR SUBSTR(V."NrAccount", 9, 1) IN (
+          OR V."BalPrefix1" IN (
               SELECT "BalAccount"
               FROM PBI."SPAccountControl"
               WHERE "count_BalAccount" = '1'
@@ -77,7 +81,7 @@ AC AS (
     INNER JOIN PBI."AccountStatus" S
       ON AA."IDNAccount" = S."IDNAccount"
      AND NOT (
-          SUBSTR(AA."Account", 9, 4) = '3119'
+          AA."BalPrefix4" = '3119'
           AND S."StatusOwner" IN ('INP', 'IZP')
      )
 ),
@@ -103,29 +107,34 @@ AAC AS (
         )
 ),
 SRA AS (
-    SELECT VI."Account"
+    SELECT
+        VI."Account",
+        VI."BalPrefix1",
+        VI."BalPrefix2",
+        VI."BalPrefix3",
+        VI."BalPrefix4"
     FROM PBI.V_INFOYSR_WITH_ACCOUNT VI
     WHERE VI."DtBalance" IN (SELECT D."DtBalance" FROM D)
       AND (
-          SUBSTR(VI."NrAccount", 9, 4) IN (
+          VI."BalPrefix4" IN (
               SELECT "BalAccount"
               FROM PBI."SPAccountControl"
               WHERE "count_BalAccount" = '4'
                 AND "PrYSR" = '1'
           )
-          OR SUBSTR(VI."NrAccount", 9, 3) IN (
+          OR VI."BalPrefix3" IN (
               SELECT "BalAccount"
               FROM PBI."SPAccountControl"
               WHERE "count_BalAccount" = '3'
                 AND "PrYSR" = '1'
           )
-          OR SUBSTR(VI."NrAccount", 9, 2) IN (
+          OR VI."BalPrefix2" IN (
               SELECT "BalAccount"
               FROM PBI."SPAccountControl"
               WHERE "count_BalAccount" = '2'
                 AND "PrYSR" = '1'
           )
-          OR SUBSTR(VI."NrAccount", 9, 1) IN (
+          OR VI."BalPrefix1" IN (
               SELECT "BalAccount"
               FROM PBI."SPAccountControl"
               WHERE "count_BalAccount" = '1'

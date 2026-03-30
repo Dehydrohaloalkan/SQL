@@ -28,7 +28,10 @@
 
 В `script.sql` один и тот же `CASE` в CTE `AA` и `SRA`. Во view столбец называется **`Account`**.
 
-**CTE `AC`:** проверка `SUBSTR("Account", 9, 4) = '3119'` остаётся корректной: первые 28 символов совпадают с `NrAccount`.
+Дополнительно во view вычисляются:
+- **`BalPrefix1..BalPrefix4`** = `SUBSTR(NrAccount, 9, N)` — чтобы убрать `SUBSTR(...)` из предикатов в `script_final.sql`.
+
+**CTE `AC`:** вместо `SUBSTR("Account", 9, 4)` в итоговом запросе используется **`BalPrefix4`** (семантика та же, но без `SUBSTR`).
 
 ---
 
