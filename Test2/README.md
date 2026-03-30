@@ -1,30 +1,30 @@
-# Test2: автогенерируемые поля (GENERATED ALWAYS) для префиксов балансового счёта
+# Test2: индексы по выражениям `SUBSTR` (Db2 for z/OS)
 
-Вариант для **DB2 for z/OS**: в таблицы `PBI."Account"` и `PBI."InfoYSR"` добавляются:
+Для Db2 for z/OS выражения вида `ADD COLUMN ... GENERATED ALWAYS AS (<expr>)` для вычисляемых колонок недоступны (обычно Db2/валидатор “ждёт IDENTITY/CHECK”).
 
-- **`BalPrefix1` … `BalPrefix4`** — то же, что `SUBSTR("NrAccount", 9, N)`;
-- **`AccountKey`** — то же, что поле `"Account"` в отчёте (конкатенация `NrAccount` / `NrEWallet` / `CdCurrency` по правилам `script.sql`).
+Поэтому ускорение делаем так:
 
-По префиксам строятся **индексы**; в `script_final.sql` нет ни `SUBSTR` в фильтрах, ни ручного `CASE` для ключа — берётся **`AccountKey`**.
+- создаём **индексы по выражениям** `SUBSTR("NrAccount", 9, N)`;
+- запрос можно оставлять с `SUBSTR` в предикатах (см. `script_final.sql`).
 
 ## Ограничения
 
-- Нужны права **ALTER** на таблицы и **CREATE** на индексы в схеме `PBI` (или куда согласуете индексы).
-- На больших таблицах `ALTER … ADD COLUMN` и построение индекса могут быть **долгими**; согласовать окно с DBA.
+- Нужны права **CREATE** на индексы в схеме `PBI` (или куда согласуете индексы).
+- Построение индексов на больших таблицах может быть **долгим**; согласовать окно с DBA.
 - После DDL — **RUNSTATS** по таблицам/индексам (см. `04_runstats_hint.sql`).
 
 ## Файлы
 
 | Файл | Назначение |
 |------|------------|
-| `01_alter_account_bal_prefix.sql` | `ALTER TABLE` — 4 generated column на `PBI."Account"` |
-| `02_alter_infoysr_bal_prefix.sql` | `ALTER TABLE` — 4 generated column на `PBI."InfoYSR"` |
-| `03_create_indexes.sql` | Новые индексы по `NrBank`/`DtBalance` + префиксам + (опц.) `AccountKey` |
+| `01_alter_account_bal_prefix.sql` | Заглушка (generated columns не используем на z/OS) |
+| `02_alter_infoysr_bal_prefix.sql` | Заглушка (generated columns не используем на z/OS) |
+| `03_create_indexes.sql` | Индексы по `NrBank`/`DtBalance` + `SUBSTR(NrAccount,9,N)` |
 | `04_runstats_hint.sql` | Памятка по RUNSTATS |
-| `script_final.sql` | Запрос с использованием `BalPrefix*` (аналог `../script.sql`) |
+| `script_final.sql` | Запрос (аналог `../script.sql`) под индексы `SUBSTR` |
 
-**Порядок:** `01` → `02` → `03` → `04` (по необходимости) → `script_final.sql`.
+**Порядок:** `03` → `04` (по необходимости) → `script_final.sql`.
 
 ## Откат (идея)
 
-Удаление generated column в Db2 — отдельная операция `ALTER … DROP COLUMN` (имена столбцов как в DDL). Перед удалением столбцов — **DROP INDEX**, которые на них ссылаются.
+Удаление — это **DROP INDEX** для созданных индексов из `03_create_indexes.sql`.

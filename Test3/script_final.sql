@@ -1,19 +1,12 @@
--- Test2: тот же смысл, что ../script.sql.
--- Для Db2 for z/OS generated columns вида GENERATED ALWAYS AS (expression) недоступны,
--- поэтому ускорение делаем через индексы по выражениям SUBSTR(...) (см. 03_create_indexes.sql).
+-- Test3: вариант запроса под материализованные колонки BalPrefix* и AccountKey (заполняются триггерами).
+-- Предварительно: 01_add_columns.sql → 02_backfill.sql → 03_create_triggers.sql → 04_create_indexes.sql → 05_runstats_hint.sql
 
 WITH AA AS (
     SELECT
         A."IDNAccount",
         A."NrBank",
-        (
-            CASE
-                WHEN SUBSTR(A."NrAccount", 9, 4) = '3119'
-                 AND A."NrEWallet" IS NOT NULL
-                    THEN A."NrAccount" || '|' || A."NrEWallet" || '|' || A."CdCurrency"
-                ELSE A."NrAccount" || '||' || A."CdCurrency"
-            END
-        ) AS "Account"
+        A."AccountKey" AS "Account",
+        A."BalPrefix4"
     FROM PBI."Account" A
     WHERE A."NrBank" IN (
             SELECT "NrBank"
@@ -23,51 +16,29 @@ WITH AA AS (
         )
       AND A."NrBank" <> '042'
       AND A."NrBank" IN (
-            '108',
-            '110',
-            '117',
-            '175',
-            '182',
-            '222',
-            '226',
-            '270',
-            '272',
-            '288',
-            '303',
-            '333',
-            '345',
-            '369',
-            '704',
-            '735',
-            '739',
-            '742',
-            '749',
-            '765',
-            '782',
-            '795',
-            '820',
-            '964'
+            '108','110','117','175','182','222','226','270','272','288','303','333',
+            '345','369','704','735','739','742','749','765','782','795','820','964'
         )
       AND (
-            SUBSTR(A."NrAccount", 9, 4) IN (
+            A."BalPrefix4" IN (
                 SELECT "BalAccount"
                 FROM PBI."SPAccountControl"
                 WHERE "count_BalAccount" = 4
                   AND "PrYSR" = 1
             )
-            OR SUBSTR(A."NrAccount", 9, 3) IN (
+            OR A."BalPrefix3" IN (
                 SELECT "BalAccount"
                 FROM PBI."SPAccountControl"
                 WHERE "count_BalAccount" = 3
                   AND "PrYSR" = 1
             )
-            OR SUBSTR(A."NrAccount", 9, 2) IN (
+            OR A."BalPrefix2" IN (
                 SELECT "BalAccount"
                 FROM PBI."SPAccountControl"
                 WHERE "count_BalAccount" = 2
                   AND "PrYSR" = 1
             )
-            OR SUBSTR(A."NrAccount", 9, 1) IN (
+            OR A."BalPrefix1" IN (
                 SELECT "BalAccount"
                 FROM PBI."SPAccountControl"
                 WHERE "count_BalAccount" = 1
@@ -87,7 +58,7 @@ AC AS (
     INNER JOIN PBI."AccountStatus" S
         ON AA."IDNAccount" = S."IDNAccount"
        AND NOT (
-            SUBSTR(AA."Account", 9, 4) = '3119'
+            AA."BalPrefix4" = '3119'
             AND S."StatusOwner" IN ('INP', 'IZP')
         )
 ),
@@ -112,39 +83,29 @@ AAC AS (
 ),
 SRA AS (
     SELECT
-        (
-            CASE
-                WHEN SUBSTR(I."NrAccount", 9, 4) = '3119'
-                 AND I."NrEWallet" IS NOT NULL
-                    THEN I."NrAccount" || '|' || I."NrEWallet" || '|' || I."CdCurrency"
-                ELSE I."NrAccount" || '||' || I."CdCurrency"
-            END
-        ) AS "Account"
+        I."AccountKey" AS "Account"
     FROM PBI."InfoYSR" I
-    WHERE I."DtBalance" IN (
-            SELECT D."DtBalance"
-            FROM D
-        )
+    WHERE I."DtBalance" IN (SELECT D."DtBalance" FROM D)
       AND (
-            SUBSTR(I."NrAccount", 9, 4) IN (
+            I."BalPrefix4" IN (
                 SELECT "BalAccount"
                 FROM PBI."SPAccountControl"
                 WHERE "count_BalAccount" = 4
                   AND "PrYSR" = 1
             )
-            OR SUBSTR(I."NrAccount", 9, 3) IN (
+            OR I."BalPrefix3" IN (
                 SELECT "BalAccount"
                 FROM PBI."SPAccountControl"
                 WHERE "count_BalAccount" = 3
                   AND "PrYSR" = 1
             )
-            OR SUBSTR(I."NrAccount", 9, 2) IN (
+            OR I."BalPrefix2" IN (
                 SELECT "BalAccount"
                 FROM PBI."SPAccountControl"
                 WHERE "count_BalAccount" = 2
                   AND "PrYSR" = 1
             )
-            OR SUBSTR(I."NrAccount", 9, 1) IN (
+            OR I."BalPrefix1" IN (
                 SELECT "BalAccount"
                 FROM PBI."SPAccountControl"
                 WHERE "count_BalAccount" = 1
@@ -165,13 +126,11 @@ Q1 AS (
         "DtBalance",
         "Account"
     FROM AAC
-    WHERE "Account" IN (
-            SELECT "Account"
-            FROM AACS
-        )
+    WHERE "Account" IN (SELECT "Account" FROM AACS)
 )
 SELECT
     "NrBank",
     '4|' || VARCHAR_FORMAT("DtBalance", 'YYYY-MM-DD') || '|' || "Account"
         || '|090|За отчетную дату не получена информация об остатке д/с на счете/эл.денег в эл.кошельке в файле YSR' AS "LineFile"
 FROM Q1;
+
