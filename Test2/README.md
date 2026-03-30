@@ -19,7 +19,7 @@
 |------|------------|
 | `01_alter_account_bal_prefix.sql` | `ALTER TABLE` — 4 generated column на `PBI."Account"` |
 | `02_alter_infoysr_bal_prefix.sql` | `ALTER TABLE` — 4 generated column на `PBI."InfoYSR"` |
-| `03_create_indexes.sql` | Новые индексы по `NrBank`/`DtBalance` + префиксам |
+| `03_create_indexes.sql` | Новые индексы по `NrBank`/`DtBalance` + префиксам + (опц.) `AccountKey` |
 | `04_runstats_hint.sql` | Памятка по RUNSTATS |
 | `script_final.sql` | Запрос с использованием `BalPrefix*` (аналог `../script.sql`) |
 

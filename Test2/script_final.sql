@@ -46,26 +46,26 @@ WITH AA AS (
             A."BalPrefix4" IN (
                 SELECT "BalAccount"
                 FROM PBI."SPAccountControl"
-                WHERE "count_BalAccount" = '4'
-                  AND "PrYSR" = '1'
+                WHERE "count_BalAccount" = 4
+                  AND "PrYSR" = 1
             )
             OR A."BalPrefix3" IN (
                 SELECT "BalAccount"
                 FROM PBI."SPAccountControl"
-                WHERE "count_BalAccount" = '3'
-                  AND "PrYSR" = '1'
+                WHERE "count_BalAccount" = 3
+                  AND "PrYSR" = 1
             )
             OR A."BalPrefix2" IN (
                 SELECT "BalAccount"
                 FROM PBI."SPAccountControl"
-                WHERE "count_BalAccount" = '2'
-                  AND "PrYSR" = '1'
+                WHERE "count_BalAccount" = 2
+                  AND "PrYSR" = 1
             )
             OR A."BalPrefix1" IN (
                 SELECT "BalAccount"
                 FROM PBI."SPAccountControl"
-                WHERE "count_BalAccount" = '1'
-                  AND "PrYSR" = '1'
+                WHERE "count_BalAccount" = 1
+                  AND "PrYSR" = 1
             )
         )
 ),
@@ -88,7 +88,7 @@ AC AS (
 D AS (
     SELECT MAX("LastWorkDayMonth") AS "DtBalance"
     FROM PBI."SPDatesControl"
-    WHERE "PrYSR_Month" = '1'
+    WHERE "PrYSR_Month" = 1
 ),
 AAC AS (
     SELECT *
@@ -116,26 +116,26 @@ SRA AS (
             I."BalPrefix4" IN (
                 SELECT "BalAccount"
                 FROM PBI."SPAccountControl"
-                WHERE "count_BalAccount" = '4'
-                  AND "PrYSR" = '1'
+                WHERE "count_BalAccount" = 4
+                  AND "PrYSR" = 1
             )
             OR I."BalPrefix3" IN (
                 SELECT "BalAccount"
                 FROM PBI."SPAccountControl"
-                WHERE "count_BalAccount" = '3'
-                  AND "PrYSR" = '1'
+                WHERE "count_BalAccount" = 3
+                  AND "PrYSR" = 1
             )
             OR I."BalPrefix2" IN (
                 SELECT "BalAccount"
                 FROM PBI."SPAccountControl"
-                WHERE "count_BalAccount" = '2'
-                  AND "PrYSR" = '1'
+                WHERE "count_BalAccount" = 2
+                  AND "PrYSR" = 1
             )
             OR I."BalPrefix1" IN (
                 SELECT "BalAccount"
                 FROM PBI."SPAccountControl"
-                WHERE "count_BalAccount" = '1'
-                  AND "PrYSR" = '1'
+                WHERE "count_BalAccount" = 1
+                  AND "PrYSR" = 1
             )
         )
 ),
