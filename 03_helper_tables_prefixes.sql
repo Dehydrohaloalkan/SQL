@@ -1,0 +1,55 @@
+-- DB2 for z/OS: таблица-помощник для префиксов балансовых счетов
+-- Цель: убрать 4 повторяющихся IN-подзапроса (len=1..4) и свести к одной таблице.
+-- Этот вариант даёт контроль и индексируемость (и проще менять правила).
+
+--------------------------------------------------------------------------------
+-- A) Таблица префиксов
+--------------------------------------------------------------------------------
+-- CREATE TABLE PBI.YSR_BAL_PREFIXES
+-- (
+--   BalPrefix     VARCHAR(4) NOT NULL,
+--   BalPrefixLen  SMALLINT   NOT NULL,
+--   PrYSR         SMALLINT   NOT NULL,
+--   PRIMARY KEY (BalPrefix, BalPrefixLen, PrYSR)
+-- );
+
+-- Индекс под быстрый поиск (PK уже есть; дополнительный часто не нужен)
+-- CREATE INDEX PBI.X_YSR_BAL_PREFIXES_P
+--   ON PBI.YSR_BAL_PREFIXES (PrYSR ASC, BalPrefixLen ASC, BalPrefix ASC);
+
+--------------------------------------------------------------------------------
+-- B) Заполнение из SPAccountControl (однократно или по расписанию)
+--------------------------------------------------------------------------------
+-- MERGE INTO PBI.YSR_BAL_PREFIXES T
+-- USING (
+--   SELECT
+--     CAST(BalAccount AS VARCHAR(4))   AS BalPrefix,
+--     SMALLINT(count_BalAccount)       AS BalPrefixLen,
+--     SMALLINT(PrYSR)                  AS PrYSR
+--   FROM PBI."SPAccountControl"
+--   WHERE PrYSR = 1
+-- ) S
+-- ON (T.BalPrefix = S.BalPrefix AND T.BalPrefixLen = S.BalPrefixLen AND T.PrYSR = S.PrYSR)
+-- WHEN NOT MATCHED THEN
+--   INSERT (BalPrefix, BalPrefixLen, PrYSR)
+--   VALUES (S.BalPrefix, S.BalPrefixLen, S.PrYSR)
+-- ;
+
+--------------------------------------------------------------------------------
+-- C) Минимальная правка скрипта (идея)
+--------------------------------------------------------------------------------
+-- Вместо 4 условий SUBSTR(...,1..4) IN (SELECT BalAccount ... count_BalAccount='N')
+-- можно сделать одно условие через EXISTS:
+--
+-- EXISTS (
+--   SELECT 1
+--   FROM PBI.YSR_BAL_PREFIXES P
+--   WHERE P.PrYSR = 1
+--     AND (
+--       (P.BalPrefixLen = 4 AND P.BalPrefix = SUBSTR(A.NrAccount, 9, 4)) OR
+--       (P.BalPrefixLen = 3 AND P.BalPrefix = SUBSTR(A.NrAccount, 9, 3)) OR
+--       (P.BalPrefixLen = 2 AND P.BalPrefix = SUBSTR(A.NrAccount, 9, 2)) OR
+--       (P.BalPrefixLen = 1 AND P.BalPrefix = SUBSTR(A.NrAccount, 9, 1))
+--     )
+-- )
+

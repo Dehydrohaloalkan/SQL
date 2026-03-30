@@ -1,0 +1,77 @@
+-- DB2 for z/OS: материализация под ежедневный запуск
+-- Цель: один раз в день собрать “маленькие” наборы, чтобы основной запрос не ходил по 155M/237M.
+-- Выбор между (A) стейджинг-таблицей и (B) MQT зависит от ваших правил и возможностей.
+
+--------------------------------------------------------------------------------
+-- A) Стейджинг: таблица eligible accounts на дату
+--------------------------------------------------------------------------------
+-- Идея: ежедневно перед ручным запуском прогонять INSERT в таблицу-слепок на текущую DtBalance.
+-- Таблица хранит уже собранный AccountKey (и нужные атрибуты), индексируется по AccountKey.
+
+-- 1) Таблица-слепок (можно хранить по дате или перетирать)
+-- CREATE TABLE PBI.YSR_ELIGIBLE_ACCOUNTS
+-- (
+--   DtBalance   DATE        NOT NULL,
+--   NrBank      CHAR(3)     NOT NULL,
+--   IDNAccount  BIGINT      NOT NULL,
+--   AccountKey  VARCHAR(128) NOT NULL
+-- )
+-- ;
+-- CREATE INDEX PBI.X_YSR_ELIGIBLE_DT_ACC
+--   ON PBI.YSR_ELIGIBLE_ACCOUNTS (DtBalance ASC, AccountKey ASC);
+
+-- 2) Пересборка на нужную дату
+-- -- DELETE FROM PBI.YSR_ELIGIBLE_ACCOUNTS WHERE DtBalance = :DtBalance;
+-- -- INSERT INTO PBI.YSR_ELIGIBLE_ACCOUNTS (DtBalance, NrBank, IDNAccount, AccountKey)
+-- -- SELECT
+-- --   D.DtBalance,
+-- --   A.NrBank,
+-- --   A.IDNAccount,
+-- --   CASE
+-- --     WHEN (SUBSTR(A.NrAccount, 9, 4) = '3119' AND A.NrEWallet IS NOT NULL)
+-- --       THEN A.NrAccount || '|' || A.NrEWallet || '|' || A.CdCurrency
+-- --     ELSE A.NrAccount || '||' || A.CdCurrency
+-- --   END AS AccountKey
+-- -- FROM PBI."Account" A
+-- -- CROSS JOIN (
+-- --   SELECT MAX(LastWorkDayMonth) AS DtBalance
+-- --   FROM PBI."SPDatesControl"
+-- --   WHERE PrYSR_Month = 1
+-- -- ) D
+-- -- WHERE A.NrBank IN (SELECT NrBank FROM PBI."SPBICBY" WHERE BICStatus IN ('0','1') AND CdActRecord='0')
+-- --   AND A.NrBank <> '042'
+-- --   AND A.NrBank IN ('108','110','117','175','182','222','226','270','272','288','303','333','345','369','704','735','739','742','749','765','782','795','820','964')
+-- --   AND (
+-- --     SUBSTR(A.NrAccount, 9, 4) IN (SELECT BalAccount FROM PBI."SPAccountControl" WHERE count_BalAccount=4 AND PrYSR=1) OR
+-- --     SUBSTR(A.NrAccount, 9, 3) IN (SELECT BalAccount FROM PBI."SPAccountControl" WHERE count_BalAccount=3 AND PrYSR=1) OR
+-- --     SUBSTR(A.NrAccount, 9, 2) IN (SELECT BalAccount FROM PBI."SPAccountControl" WHERE count_BalAccount=2 AND PrYSR=1) OR
+-- --     SUBSTR(A.NrAccount, 9, 1) IN (SELECT BalAccount FROM PBI."SPAccountControl" WHERE count_BalAccount=1 AND PrYSR=1)
+-- --   )
+-- -- ;
+
+--------------------------------------------------------------------------------
+-- B) MQT (если разрешено) для InfoYSR на DtBalance
+--------------------------------------------------------------------------------
+-- Идея: сделать “проекцию” под запрос с ключом по DtBalance + AccountKey.
+-- Это полезно, если базовая InfoYSR широкая и/или текущий индекс не подходит.
+
+-- CREATE TABLE PBI.MQT_INFOYSR_DTBAL
+--   AS (
+--     SELECT
+--       I.DtBalance,
+--       CASE
+--         WHEN (SUBSTR(I.NrAccount, 9, 4) = '3119' AND I.NrEWallet IS NOT NULL)
+--           THEN I.NrAccount || '|' || I.NrEWallet || '|' || I.CdCurrency
+--         ELSE I.NrAccount || '||' || I.CdCurrency
+--       END AS AccountKey
+--     FROM PBI."InfoYSR" I
+--   )
+--   DATA INITIALLY DEFERRED
+--   REFRESH DEFERRED
+-- ;
+-- CREATE INDEX PBI.X_MQT_INFOYSR_DTBAL_KEY
+--   ON PBI.MQT_INFOYSR_DTBAL (DtBalance ASC, AccountKey ASC);
+
+-- Рефреш по расписанию:
+-- REFRESH TABLE PBI.MQT_INFOYSR_DTBAL;
+

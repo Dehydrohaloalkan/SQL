@@ -1,0 +1,71 @@
+-- DB2 for z/OS: новые индексы (существующие не трогаем)
+-- Цель: ускорить критические предикаты запроса, особенно фильтр InfoYSR по DtBalance.
+-- ВАЖНО: перед созданием уточни:
+--   - в каких TS/DB создавать индекс (USING STOGROUP / PRIQTY/SECQTY / BUFFERPOOL)
+--   - нужно ли использовать COMPRESS/PIECESIZE/DEFINE YES/NO и т.п. (по вашим стандартам)
+
+--------------------------------------------------------------------------------
+-- 1) InfoYSR: индекс с ведущим DtBalance (ключевой кандидат)
+--------------------------------------------------------------------------------
+-- В запросе: фильтр на одну дату (из CTE D), далее используется NrAccount/NrEWallet/CdCurrency.
+-- Индекс ниже даёт возможность войти по DtBalance и быстро отобрать нужные строки.
+
+-- CREATE INDEX PBI.X_INFOYSR_DTBAL_ACC
+--   ON PBI."InfoYSR"
+--   ( "DtBalance" ASC
+--   , "NrAccount" ASC
+--   , "NrEWallet" ASC
+--   , "CdCurrency" ASC
+--   )
+--   -- INCLUDE(...) можно добавить, если нужно покрытие (зависит от плана)
+-- ;
+
+-- Если часто дополнительно используется NrBank/BalanceStatus — можно расширить ключ:
+-- CREATE INDEX PBI.X_INFOYSR_DTBAL_ACC2
+--   ON PBI."InfoYSR"
+--   ( "DtBalance" ASC
+--   , "NrBank" ASC
+--   , "NrAccount" ASC
+--   , "NrEWallet" ASC
+--   , "CdCurrency" ASC
+--   , "BalanceStatus" DESC
+--   )
+-- ;
+
+--------------------------------------------------------------------------------
+-- 2) SPBICBY: индекс под фильтр (таблица маленькая, но индекс стабилизирует план)
+--------------------------------------------------------------------------------
+-- В запросе: WHERE BICStatus IN ('0','1') AND CdActRecord='0', оттуда нужен NrBank.
+-- CREATE INDEX PBI.X_SPBICBY_ACT_BIC_NRBANK
+--   ON PBI."SPBICBY"
+--   ( "CdActRecord" ASC
+--   , "BICStatus" ASC
+--   , "NrBank" ASC
+--   )
+-- ;
+
+--------------------------------------------------------------------------------
+-- 3) SPAccountControl: индекс под повторяющиеся подзапросы
+--------------------------------------------------------------------------------
+-- В запросе: WHERE PrYSR='1' AND count_BalAccount='N' AND BalAccount IN (...)
+-- CREATE INDEX PBI.X_SPACCTCTL_PR_CNT_BAL
+--   ON PBI."SPAccountControl"
+--   ( "PrYSR" ASC
+--   , "count_BalAccount" ASC
+--   , "BalAccount" ASC
+--   )
+-- ;
+
+--------------------------------------------------------------------------------
+-- 4) AccountStatus: индекс под фильтры в AAC (после JOIN по IDNAccount)
+--------------------------------------------------------------------------------
+-- Помогает, если план показывает большой скан/сорт на AccountStatus для отбора “актуальных” строк.
+-- CREATE INDEX PBI.X_ACCTSTAT_ID_STATUS_DATES
+--   ON PBI."AccountStatus"
+--   ( "IDNAccount" ASC
+--   , "AccountStatus" ASC
+--   , "DtAccountOpen" ASC
+--   , "DtAccountChange" ASC
+--   )
+-- ;
+

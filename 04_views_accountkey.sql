@@ -1,0 +1,45 @@
+-- DB2 for z/OS: view-обёртки с предрасчётом ключа AccountKey
+-- Цель: вынести одинаковый CASE формирования "Account" в одну точку.
+-- Плюс: удобно индексировать через generated columns (см. 02) или использовать в MQT (см. 05).
+
+--------------------------------------------------------------------------------
+-- A) View для Account
+--------------------------------------------------------------------------------
+-- CREATE VIEW PBI.V_ACCOUNT_KEY AS
+-- SELECT
+--   A."IDNAccount",
+--   A."NrBank",
+--   A."NrAccount",
+--   A."NrEWallet",
+--   A."CdCurrency",
+--   CASE
+--     WHEN (SUBSTR(A."NrAccount", 9, 4) = '3119' AND A."NrEWallet" IS NOT NULL)
+--       THEN A."NrAccount" || '|'  || A."NrEWallet" || '|'  || A."CdCurrency"
+--     ELSE A."NrAccount" || '||' || A."CdCurrency"
+--   END AS AccountKey
+-- FROM PBI."Account" A
+-- ;
+
+--------------------------------------------------------------------------------
+-- B) View для InfoYSR (чтобы ключ совпадал 1-в-1)
+--------------------------------------------------------------------------------
+-- CREATE VIEW PBI.V_INFOYSR_KEY AS
+-- SELECT
+--   I."DtBalance",
+--   I."NrBank",
+--   I."NrAccount",
+--   I."NrEWallet",
+--   I."CdCurrency",
+--   CASE
+--     WHEN (SUBSTR(I."NrAccount", 9, 4) = '3119' AND I."NrEWallet" IS NOT NULL)
+--       THEN I."NrAccount" || '|'  || I."NrEWallet" || '|'  || I."CdCurrency"
+--     ELSE I."NrAccount" || '||' || I."CdCurrency"
+--   END AS AccountKey
+-- FROM PBI."InfoYSR" I
+-- ;
+
+--------------------------------------------------------------------------------
+-- C) Минимальная правка скрипта (идея)
+--------------------------------------------------------------------------------
+-- В AA/SRA вместо повторения CASE читать AccountKey из соответствующего view.
+
