@@ -19,7 +19,8 @@
 |------|------------|
 | `01_add_columns.sql` | Добавить колонки `BalPrefix*`, `AccountKey` (как nullable) |
 | `02_backfill.sql` | Заполнить колонки для существующих строк |
-| `03_create_triggers.sql` | Триггеры, чтобы колонки поддерживались дальше |
+| `03_create_triggers.sql` | Триггеры (BEFORE) для поддержки колонок |
+| `03_create_triggers_after.sql` | Триггеры (AFTER + `BEGIN ATOMIC`) в стиле вашего окружения |
 | `04_create_indexes.sql` | Индексы по новым колонкам |
 | `05_runstats_hint.sql` | Памятка по RUNSTATS |
 | `script_final.sql` | Запрос, использующий новые колонки |
