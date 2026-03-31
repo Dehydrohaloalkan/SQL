@@ -1,3 +1,4 @@
+--#SET TERMINATOR @
 -- Test3: триггеры в “вашем” стиле (AFTER ... BEGIN ATOMIC ... END)
 -- Логика та же: поддерживать BalPrefix1..4 и AccountKey.
 --
@@ -28,7 +29,7 @@ BEGIN ATOMIC
                 ELSE N."NrAccount" || '||' || N."CdCurrency"
             END
     WHERE A."IDNAccount" = N."IDNAccount";
-END;
+END@
 
 -- Account: AFTER UPDATE (только если изменились поля-источники)
 CREATE TRIGGER PBI.TR_ACCOUNT_AU_MAT
@@ -51,7 +52,7 @@ BEGIN ATOMIC
                 ELSE N."NrAccount" || '||' || N."CdCurrency"
             END
     WHERE A."IDNAccount" = N."IDNAccount";
-END;
+END@
 
 -- InfoYSR: AFTER INSERT
 CREATE TRIGGER PBI.TR_INFOYSR_AI_MAT
@@ -74,7 +75,7 @@ BEGIN ATOMIC
                 ELSE N."NrAccount" || '||' || N."CdCurrency"
             END
     WHERE I."IDNInfoYSR" = N."IDNInfoYSR";
-END;
+END@
 
 -- InfoYSR: AFTER UPDATE OF источники
 CREATE TRIGGER PBI.TR_INFOYSR_AU_MAT
@@ -97,5 +98,5 @@ BEGIN ATOMIC
                 ELSE N."NrAccount" || '||' || N."CdCurrency"
             END
     WHERE I."IDNInfoYSR" = N."IDNInfoYSR";
-END;
+END@
 

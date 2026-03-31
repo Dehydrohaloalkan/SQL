@@ -1,5 +1,7 @@
--- Test3: вариант запроса под материализованные колонки BalPrefix* и AccountKey (заполняются триггерами).
--- Предварительно: 01_add_columns.sql → 02_backfill.sql → 03_create_triggers.sql → 04_create_indexes.sql → 05_runstats_hint.sql
+-- Test3 v2: SRA переписан как UNION ALL (вместо OR) для MATCHCOLS=2 на InfoYSR.
+-- Каждая UNION-ветка использует свой индекс IX_INFOYSR_DT_BPn.
+-- AA на Account оставлен с OR — новые индексы на Account создать нельзя,
+-- и UNION тут не поможет (4 tablespace scan хуже одного).
 
 WITH AA AS (
     SELECT
@@ -82,36 +84,37 @@ AAC AS (
         )
 ),
 SRA AS (
-    SELECT
-        I."AccountKey" AS "Account"
+    SELECT I."AccountKey" AS "Account"
     FROM PBI."InfoYSR" I
-    WHERE I."DtBalance" IN (SELECT D."DtBalance" FROM D)
-      AND (
-            I."BalPrefix4" IN (
-                SELECT "BalAccount"
-                FROM PBI."SPAccountControl"
-                WHERE "count_BalAccount" = 4
-                  AND "PrYSR" = 1
-            )
-            OR I."BalPrefix3" IN (
-                SELECT "BalAccount"
-                FROM PBI."SPAccountControl"
-                WHERE "count_BalAccount" = 3
-                  AND "PrYSR" = 1
-            )
-            OR I."BalPrefix2" IN (
-                SELECT "BalAccount"
-                FROM PBI."SPAccountControl"
-                WHERE "count_BalAccount" = 2
-                  AND "PrYSR" = 1
-            )
-            OR I."BalPrefix1" IN (
-                SELECT "BalAccount"
-                FROM PBI."SPAccountControl"
-                WHERE "count_BalAccount" = 1
-                  AND "PrYSR" = 1
-            )
-        )
+    WHERE I."DtBalance" IN (SELECT "DtBalance" FROM D)
+      AND I."BalPrefix4" IN (
+          SELECT "BalAccount" FROM PBI."SPAccountControl"
+          WHERE "count_BalAccount" = 4 AND "PrYSR" = 1
+      )
+    UNION ALL
+    SELECT I."AccountKey" AS "Account"
+    FROM PBI."InfoYSR" I
+    WHERE I."DtBalance" IN (SELECT "DtBalance" FROM D)
+      AND I."BalPrefix3" IN (
+          SELECT "BalAccount" FROM PBI."SPAccountControl"
+          WHERE "count_BalAccount" = 3 AND "PrYSR" = 1
+      )
+    UNION ALL
+    SELECT I."AccountKey" AS "Account"
+    FROM PBI."InfoYSR" I
+    WHERE I."DtBalance" IN (SELECT "DtBalance" FROM D)
+      AND I."BalPrefix2" IN (
+          SELECT "BalAccount" FROM PBI."SPAccountControl"
+          WHERE "count_BalAccount" = 2 AND "PrYSR" = 1
+      )
+    UNION ALL
+    SELECT I."AccountKey" AS "Account"
+    FROM PBI."InfoYSR" I
+    WHERE I."DtBalance" IN (SELECT "DtBalance" FROM D)
+      AND I."BalPrefix1" IN (
+          SELECT "BalAccount" FROM PBI."SPAccountControl"
+          WHERE "count_BalAccount" = 1 AND "PrYSR" = 1
+      )
 ),
 AACS AS (
     SELECT DISTINCT "Account"
@@ -133,4 +136,3 @@ SELECT
     '4|' || VARCHAR_FORMAT("DtBalance", 'YYYY-MM-DD') || '|' || "Account"
         || '|090|За отчетную дату не получена информация об остатке д/с на счете/эл.денег в эл.кошельке в файле YSR' AS "LineFile"
 FROM Q1;
-
