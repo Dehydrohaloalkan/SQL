@@ -1,7 +1,7 @@
--- Test3 v2: SRA переписан как UNION ALL (вместо OR) для MATCHCOLS=2 на InfoYSR.
--- Каждая UNION-ветка использует свой индекс IX_INFOYSR_DT_BPn.
--- AA на Account оставлен с OR — новые индексы на Account создать нельзя,
--- и UNION тут не поможет (4 tablespace scan хуже одного).
+-- Test3 v3: SRA через CROSS JOIN + INNER JOIN для MATCHCOLS=2 на InfoYSR.
+-- Ключевая идея: D × SPAccountControl → driving table (1 дата × ~25 значений = ~25 строк),
+-- каждая строка делает index probe на InfoYSR по (DtBalance, BalPrefixN) = MATCHCOLS=2.
+-- AA на Account оставлен с OR — индексы на Account создать нельзя.
 
 WITH AA AS (
     SELECT
@@ -85,36 +85,48 @@ AAC AS (
 ),
 SRA AS (
     SELECT I."AccountKey" AS "Account"
-    FROM PBI."InfoYSR" I
-    WHERE I."DtBalance" IN (SELECT "DtBalance" FROM D)
-      AND I."BalPrefix4" IN (
-          SELECT "BalAccount" FROM PBI."SPAccountControl"
-          WHERE "count_BalAccount" = 4 AND "PrYSR" = 1
-      )
+    FROM D
+    CROSS JOIN (
+        SELECT "BalAccount"
+        FROM PBI."SPAccountControl"
+        WHERE "count_BalAccount" = 4 AND "PrYSR" = 1
+    ) C
+    INNER JOIN PBI."InfoYSR" I
+        ON I."DtBalance" = D."DtBalance"
+       AND I."BalPrefix4" = C."BalAccount"
     UNION ALL
     SELECT I."AccountKey" AS "Account"
-    FROM PBI."InfoYSR" I
-    WHERE I."DtBalance" IN (SELECT "DtBalance" FROM D)
-      AND I."BalPrefix3" IN (
-          SELECT "BalAccount" FROM PBI."SPAccountControl"
-          WHERE "count_BalAccount" = 3 AND "PrYSR" = 1
-      )
+    FROM D
+    CROSS JOIN (
+        SELECT "BalAccount"
+        FROM PBI."SPAccountControl"
+        WHERE "count_BalAccount" = 3 AND "PrYSR" = 1
+    ) C
+    INNER JOIN PBI."InfoYSR" I
+        ON I."DtBalance" = D."DtBalance"
+       AND I."BalPrefix3" = C."BalAccount"
     UNION ALL
     SELECT I."AccountKey" AS "Account"
-    FROM PBI."InfoYSR" I
-    WHERE I."DtBalance" IN (SELECT "DtBalance" FROM D)
-      AND I."BalPrefix2" IN (
-          SELECT "BalAccount" FROM PBI."SPAccountControl"
-          WHERE "count_BalAccount" = 2 AND "PrYSR" = 1
-      )
+    FROM D
+    CROSS JOIN (
+        SELECT "BalAccount"
+        FROM PBI."SPAccountControl"
+        WHERE "count_BalAccount" = 2 AND "PrYSR" = 1
+    ) C
+    INNER JOIN PBI."InfoYSR" I
+        ON I."DtBalance" = D."DtBalance"
+       AND I."BalPrefix2" = C."BalAccount"
     UNION ALL
     SELECT I."AccountKey" AS "Account"
-    FROM PBI."InfoYSR" I
-    WHERE I."DtBalance" IN (SELECT "DtBalance" FROM D)
-      AND I."BalPrefix1" IN (
-          SELECT "BalAccount" FROM PBI."SPAccountControl"
-          WHERE "count_BalAccount" = 1 AND "PrYSR" = 1
-      )
+    FROM D
+    CROSS JOIN (
+        SELECT "BalAccount"
+        FROM PBI."SPAccountControl"
+        WHERE "count_BalAccount" = 1 AND "PrYSR" = 1
+    ) C
+    INNER JOIN PBI."InfoYSR" I
+        ON I."DtBalance" = D."DtBalance"
+       AND I."BalPrefix1" = C."BalAccount"
 ),
 AACS AS (
     SELECT DISTINCT "Account"
