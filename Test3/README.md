@@ -7,19 +7,20 @@
 
 И поддерживать их триггерами на `INSERT/UPDATE`.
 
-## Важно
+## v4 — раскрытие BalAccount до 4 знаков (SPBalAccount4)
 
-- Это увеличит стоимость **INSERT/UPDATE** (триггеры + индексы) на больших таблицах.
-- Нужен **backfill** для уже существующих строк.
-- Согласовать с DBA окно работ и RUNSTATS.
-- **RUNSTATS обязателен** после DDL-изменений и создания индексов — без него оптимизатор игнорирует новые индексы.
+Ключевая оптимизация: все значения `BalAccount` из `SPAccountControl` (1-4 знака)
+раскрываются до 4 знаков в отдельную таблицу `SPBalAccount4`.
+Например `151` (3 знака) → `1510, 1511, ..., 1519` (10 четырёхзначных).
 
-## v2 — UNION вместо OR для InfoYSR
+Это устраняет `OR` по 4 колонкам и 4 UNION-ветки — остаётся **один** JOIN на `BalPrefix4`.
 
-Проблема v1: OR по разным колонкам (`BalPrefix4 OR BalPrefix3 OR ...`) ограничивает MATCHCOLS=1 для любого индекса.
-Решение: SRA переписан как `UNION ALL` из 4 запросов — каждая ветка получает свой индекс и MATCHCOLS=2.
-
-На Account индексы создать нельзя → AA оставлен с OR (UNION дал бы 4 tablespace scan вместо 1).
+| Версия | InfoYSR | Индексы | MATCHCOLS |
+|--------|---------|---------|-----------|
+| v1 (OR) | 1 запрос с OR | 1 комбинированный | 1 |
+| v2 (IN) | 4 UNION ALL + IN | 4 (по BalPrefix) | 1 |
+| v3 (CROSS JOIN) | 4 UNION ALL + CROSS JOIN | 4 (по BalPrefix) | 1 |
+| **v4 (SPBalAccount4)** | **1 CROSS JOIN** | **1** | **ожидаем 2** |
 
 ## Файлы
 
@@ -29,15 +30,22 @@
 | `02_backfill.sql` | Заполнить колонки для существующих строк |
 | `03_create_triggers.sql` | Триггеры (BEFORE) для поддержки колонок |
 | `03_create_triggers_after.sql` | Триггеры (AFTER + `BEGIN ATOMIC`) в стиле вашего окружения |
-| `04_create_indexes.sql` | 4 индекса на InfoYSR `(DtBalance, BalPrefixN, AccountKey)` для каждой UNION-ветки |
+| `04_create_indexes.sql` | 1 индекс на InfoYSR: `(DtBalance, BalPrefix4, AccountKey)` |
 | `05_runstats_hint.sql` | Памятка по RUNSTATS |
-| `script_final.sql` | Запрос: SRA через UNION ALL, AA с OR |
+| `06_create_expanded_table.sql` | DDL для таблицы `SPBalAccount4` |
+| `ExpandBalAccount/` | C# программа для заполнения `SPBalAccount4` |
+| `script_final.sql` | Запрос: SRA через CROSS JOIN на SPBalAccount4 |
 
 ## Порядок
 
-`01` → `02` → `03` → `04` → RUNSTATS → `script_final.sql`.
+`01` → `02` → `03` → `04` → `06` → ExpandBalAccount → RUNSTATS → `script_final.sql`.
 
-## Откат (идея)
+## Важно
 
-`DROP TRIGGER` → `DROP INDEX` → (опционально) `ALTER TABLE ... DROP COLUMN`.
+- **RUNSTATS** обязателен после DDL-изменений и создания индексов.
+- Если `SPAccountControl` изменится — перезапустить `ExpandBalAccount` для обновления `SPBalAccount4`.
+- Триггеры увеличивают стоимость INSERT/UPDATE на больших таблицах.
 
+## Откат
+
+`DROP TRIGGER` → `DROP INDEX` → `DROP TABLE PBI."SPBalAccount4"` → (опционально) `ALTER TABLE ... DROP COLUMN`.

@@ -1,7 +1,7 @@
--- Test3 v3: SRA через CROSS JOIN + INNER JOIN для MATCHCOLS=2 на InfoYSR.
--- Ключевая идея: D × SPAccountControl → driving table (1 дата × ~25 значений = ~25 строк),
--- каждая строка делает index probe на InfoYSR по (DtBalance, BalPrefixN) = MATCHCOLS=2.
--- AA на Account оставлен с OR — индексы на Account создать нельзя.
+-- Test3 v4: все BalAccount раскрыты до 4 знаков в SPBalAccount4.
+-- Вместо OR по 4 колонкам / 4 UNION ALL — один JOIN на BalPrefix4.
+-- InfoYSR: CROSS JOIN с SPBalAccount4 → INNER JOIN InfoYSR по (DtBalance, BalPrefix4) = MATCHCOLS=2.
+-- Account: единственный IN на BalPrefix4 вместо OR по BalPrefix1..4.
 
 WITH AA AS (
     SELECT
@@ -21,31 +21,10 @@ WITH AA AS (
             '108','110','117','175','182','222','226','270','272','288','303','333',
             '345','369','704','735','739','742','749','765','782','795','820','964'
         )
-      AND (
-            A."BalPrefix4" IN (
-                SELECT "BalAccount"
-                FROM PBI."SPAccountControl"
-                WHERE "count_BalAccount" = 4
-                  AND "PrYSR" = 1
-            )
-            OR A."BalPrefix3" IN (
-                SELECT "BalAccount"
-                FROM PBI."SPAccountControl"
-                WHERE "count_BalAccount" = 3
-                  AND "PrYSR" = 1
-            )
-            OR A."BalPrefix2" IN (
-                SELECT "BalAccount"
-                FROM PBI."SPAccountControl"
-                WHERE "count_BalAccount" = 2
-                  AND "PrYSR" = 1
-            )
-            OR A."BalPrefix1" IN (
-                SELECT "BalAccount"
-                FROM PBI."SPAccountControl"
-                WHERE "count_BalAccount" = 1
-                  AND "PrYSR" = 1
-            )
+      AND A."BalPrefix4" IN (
+            SELECT "BalAccount"
+            FROM PBI."SPBalAccount4"
+            WHERE "PrYSR" = 1
         )
 ),
 AC AS (
@@ -88,45 +67,12 @@ SRA AS (
     FROM D
     CROSS JOIN (
         SELECT "BalAccount"
-        FROM PBI."SPAccountControl"
-        WHERE "count_BalAccount" = 4 AND "PrYSR" = 1
+        FROM PBI."SPBalAccount4"
+        WHERE "PrYSR" = 1
     ) C
     INNER JOIN PBI."InfoYSR" I
         ON I."DtBalance" = D."DtBalance"
        AND I."BalPrefix4" = C."BalAccount"
-    UNION ALL
-    SELECT I."AccountKey" AS "Account"
-    FROM D
-    CROSS JOIN (
-        SELECT "BalAccount"
-        FROM PBI."SPAccountControl"
-        WHERE "count_BalAccount" = 3 AND "PrYSR" = 1
-    ) C
-    INNER JOIN PBI."InfoYSR" I
-        ON I."DtBalance" = D."DtBalance"
-       AND I."BalPrefix3" = C."BalAccount"
-    UNION ALL
-    SELECT I."AccountKey" AS "Account"
-    FROM D
-    CROSS JOIN (
-        SELECT "BalAccount"
-        FROM PBI."SPAccountControl"
-        WHERE "count_BalAccount" = 2 AND "PrYSR" = 1
-    ) C
-    INNER JOIN PBI."InfoYSR" I
-        ON I."DtBalance" = D."DtBalance"
-       AND I."BalPrefix2" = C."BalAccount"
-    UNION ALL
-    SELECT I."AccountKey" AS "Account"
-    FROM D
-    CROSS JOIN (
-        SELECT "BalAccount"
-        FROM PBI."SPAccountControl"
-        WHERE "count_BalAccount" = 1 AND "PrYSR" = 1
-    ) C
-    INNER JOIN PBI."InfoYSR" I
-        ON I."DtBalance" = D."DtBalance"
-       AND I."BalPrefix1" = C."BalAccount"
 ),
 AACS AS (
     SELECT DISTINCT "Account"

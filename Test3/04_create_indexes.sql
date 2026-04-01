@@ -1,20 +1,14 @@
--- Test3 v2: индексы для UNION-подхода.
+-- Test3 v4: один индекс на InfoYSR вместо четырёх (все BalAccount раскрыты до 4 знаков).
 -- На Account индексы создать нельзя (ограничение базы).
--- На InfoYSR: по индексу на каждый BalPrefix для MATCHCOLS=2 в каждой UNION-ветке.
--- AccountKey в индексе даёт index-only access (SELECT в SRA читает только AccountKey).
--- Если AccountKey слишком раздувает индекс — убрать его; тогда будет MATCHCOLS=2 + data page access.
 
--- Удалить старый комбинированный индекс (если создан)
+-- Удалить старые индексы (если были созданы):
 -- DROP INDEX PBI.IX_INFOYSR_DTBAL_BALP4_KEY;
+-- DROP INDEX PBI.IX_INFOYSR_DT_BP4;
+-- DROP INDEX PBI.IX_INFOYSR_DT_BP3;
+-- DROP INDEX PBI.IX_INFOYSR_DT_BP2;
+-- DROP INDEX PBI.IX_INFOYSR_DT_BP1;
 
+-- InfoYSR: (DtBalance, BalPrefix4, AccountKey) для MATCHCOLS=2 + index-only access.
+-- Если AccountKey слишком раздувает индекс — убрать его.
 CREATE INDEX PBI.IX_INFOYSR_DT_BP4
     ON PBI."InfoYSR" ("DtBalance" ASC, "BalPrefix4" ASC, "AccountKey" ASC);
-
-CREATE INDEX PBI.IX_INFOYSR_DT_BP3
-    ON PBI."InfoYSR" ("DtBalance" ASC, "BalPrefix3" ASC, "AccountKey" ASC);
-
-CREATE INDEX PBI.IX_INFOYSR_DT_BP2
-    ON PBI."InfoYSR" ("DtBalance" ASC, "BalPrefix2" ASC, "AccountKey" ASC);
-
-CREATE INDEX PBI.IX_INFOYSR_DT_BP1
-    ON PBI."InfoYSR" ("DtBalance" ASC, "BalPrefix1" ASC, "AccountKey" ASC);
