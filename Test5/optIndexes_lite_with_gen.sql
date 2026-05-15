@@ -12,9 +12,15 @@ CREATE INDEX PBI.IX_ACCOUNT_NB_BA4_COVER ON PBI."Account" (
     "NrAccount" ASC
 ) using stogroup SGPBI priqty 9600 secqty 9600 DEFER YES ~
 
-CREATE INDEX PBI.IX_YTIGOS_BANK ON PBI."TableYTIGos" (
-    "NrBankMQ" ASC
-) using stogroup SGPBI priqty 60 secqty 60 DEFER YES ~
+CREATE INDEX PBI.IXE_YTIGOS_PAYER ON PBI."TableYTIGos" (
+    "NrBankMQ" ASC,
+    (SUBSTR("NrAccountPayer", 5, 4)) ASC
+) using stogroup SGPBI priqty 240 secqty 240 DEFER YES ~
+
+CREATE INDEX PBI.IXE_YTIGOS_BENEF ON PBI."TableYTIGos" (
+    "NrBankMQ" ASC,
+    (SUBSTR("NrAccountBenef", 5, 4)) ASC
+) using stogroup SGPBI priqty 240 secqty 240 DEFER YES ~
 
 CREATE INDEX PBI.IX_YSRGOS_JOIN ON PBI."TableYSRGos" (
     "NrAccount" ASC,
